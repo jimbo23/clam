@@ -123,7 +123,9 @@ final class InstanceLock {
         guard fd >= 0 else {
             throw AppOperationError(message: "Cannot open Clam's instance lock: \(String(cString: strerror(errno))).")
         }
-        guard Darwin.flock(fd, LOCK_EX | LOCK_NB) == 0 else {
+        // `flock` names both a C struct and a function; annotate to select the function.
+        let lockFile: (Int32, Int32) -> Int32 = Darwin.flock
+        guard lockFile(fd, LOCK_EX | LOCK_NB) == 0 else {
             let code = errno
             Darwin.close(fd)
             if code == EWOULDBLOCK || code == EAGAIN { return false }
