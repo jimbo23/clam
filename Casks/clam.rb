@@ -1,9 +1,7 @@
 cask "clam" do
   version "0.1.0"
-  # TODO: Replace with the actual archive SHA-256 only after an intentional release.
-  sha256 "TODO..."
+  sha256 "fe25b8fb00cc7629a27cb661350288d5dd3c8a9b85838acf6ba84e49cef564bf"
 
-  # TODO: This release URL is unpublished; this cask is a local template only.
   url "https://github.com/jimbo23/clam/releases/download/v#{version}/Clam-#{version}.zip"
   name "Clam"
   desc "Menu bar toggle that prevents sleep when the lid is closed"
@@ -31,15 +29,17 @@ cask "clam" do
   ]
 
   caveats <<~EOS
-    The release URL and SHA-256 are placeholders; no release has been published.
-    Build locally with scripts/build.sh instead of installing this template.
+    Clam is ad-hoc signed and NOT notarized, so Gatekeeper blocks it on first
+    launch. To allow it, either run:
+      xattr -dr com.apple.quarantine #{appdir}/Clam.app
+    or open Clam once, then go to System Settings > Privacy & Security and
+    click "Open Anyway".
 
-    Clam's optional helper can be installed using Install Helper… in the menu
-    while Clam is off. Installation requires administrator authorization and
-    adds narrowly scoped sudo rules plus a boot-time sleep-reset daemon.
-    Without the helper, changing sleep settings requests authorization.
+    One-time setup: with Clam Off, choose "Install Helper…" from its menu and
+    approve the administrator prompt. This installs a sudoers rule limited to
+    `/usr/bin/pmset -a disablesleep 0|1` and a LaunchDaemon that resets
+    disablesleep to 0 at every boot.
 
-    Uninstalling resets disablesleep to 0 and removes Clam's helper and daemon.
-    A local ad-hoc signature is not a Developer ID signature or notarization.
+    Never put a Mac with Clam On in a bag: it will stay awake and get hot.
   EOS
 end
