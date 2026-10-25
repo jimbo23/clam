@@ -6,10 +6,10 @@ cask "clam" do
   # TODO: This release URL is unpublished; this cask is a local template only.
   url "https://github.com/jimbo23/clam/releases/download/v#{version}/Clam-#{version}.zip"
   name "Clam"
-  desc "Menu-bar control for keeping a Mac awake with its lid closed"
+  desc "Menu bar toggle that prevents sleep when the lid is closed"
   homepage "https://github.com/jimbo23/clam"
 
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "Clam.app"
 
