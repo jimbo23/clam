@@ -1,0 +1,78 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain info
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Test
+        run: swift test
+
+      - name: Set version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Resources/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" Resources/Info.plist
+
+      - name: Build universal ad-hoc signed app
+        run: |
+          ./scripts/build.sh
+          ZIP="dist/Clam-${{ steps.version.outputs.version }}.zip"
+          test -f "$ZIP"
+          lipo -info build/Clam.app/Contents/MacOS/Clam
+          codesign --verify --verbose=2 build/Clam.app
+          (cd dist && shasum -a 256 "$(basename "$ZIP")" > "$(basename "$ZIP").sha256")
+          echo "SHA-256:"; cat "$ZIP.sha256"
+          echo "### Clam ${{ steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"; cat "$ZIP.sha256" >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clam-${{ steps.version.outputs.version }}
+          path: |
+            dist/Clam-${{ steps.version.outputs.version }}.zip
+            dist/Clam-${{ steps.version.outputs.version }}.zip.sha256
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          V="${{ steps.version.outputs.version }}"
+          FILES="dist/Clam-$V.zip dist/Clam-$V.zip.sha256"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" $FILES --clobber
+          else
+            gh release create "$TAG" $FILES --title "Clam $V" --notes "Universal (arm64 + x86_64) ad-hoc signed build. Not notarized: after install run \`xattr -dr com.apple.quarantine /Applications/Clam.app\` or use System Settings → Privacy & Security → Open Anyway.
+
+          SHA-256: \`$(cut -d' ' -f1 dist/Clam-$V.zip.sha256)\`"
+          fi

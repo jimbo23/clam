@@ -8,14 +8,26 @@ Clam 0.1.0 is a local menu-bar app for macOS 13 or later. It requests that a Mac
 
 ## Install
 
-### Homebrew — future, unpublished templates
-
-The planned tap repository is **`jimbo23/homebrew-tap`**. These commands describe the intended installation flow; they do not imply that a tap, downloadable release, or notarized app has been published:
+### Homebrew
 
 ```sh
 brew tap jimbo23/tap
 brew install --cask jimbo23/tap/clam
 ```
+
+Releases are built by GitHub Actions and are **ad-hoc signed only** (no Developer ID, no notarization).
+
+> **Gatekeeper / quarantine note.** Because Clam is not notarized, macOS blocks it on first launch after `brew install` (or after downloading the zip) with a "cannot be opened" / "Apple could not verify" dialog. To allow it, either:
+>
+> ```sh
+> xattr -dr com.apple.quarantine /Applications/Clam.app
+> ```
+>
+> or try to open Clam once, then go to **System Settings → Privacy & Security** and click **Open Anyway** (macOS 15+ requires this route instead of right-click → Open).
+>
+> After it launches, pick **Install Helper…** from the menu (while Clam is Off) for the one-time admin step.
+
+Release zips and their `.sha256` files are on the [Releases page](https://github.com/jimbo23/clam/releases).
 
 ### Manual local installation
 
