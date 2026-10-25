@@ -119,17 +119,13 @@ final class InstanceLock {
     func acquire(in directory: URL) throws -> Bool {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let path = directory.appendingPathComponent("instance.lock").path
-        let fd = Darwin.open(path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, S_IRUSR | S_IWUSR)
+        // O_EXLOCK | O_NONBLOCK takes the same BSD flock(2) lock atomically at open,
+        // avoiding Swift's ambiguity between the `flock` struct and function.
+        let fd = Darwin.open(path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW | O_EXLOCK | O_NONBLOCK, S_IRUSR | S_IWUSR)
         guard fd >= 0 else {
-            throw AppOperationError(message: "Cannot open Clam's instance lock: \(String(cString: strerror(errno))).")
-        }
-        // `flock` names both a C struct and a function; annotate to select the function.
-        let lockFile: (Int32, Int32) -> Int32 = Darwin.flock
-        guard lockFile(fd, LOCK_EX | LOCK_NB) == 0 else {
             let code = errno
-            Darwin.close(fd)
             if code == EWOULDBLOCK || code == EAGAIN { return false }
-            throw AppOperationError(message: "Cannot lock Clam's state: \(String(cString: strerror(code))).")
+            throw AppOperationError(message: "Cannot open Clam's instance lock: \(String(cString: strerror(code))).")
         }
         descriptor = fd
         return true
