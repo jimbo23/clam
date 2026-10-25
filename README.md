@@ -82,6 +82,12 @@ pmset -g | grep SleepDisabled
 
 A remaining recovery marker can cause a subsequent launch to restore its saved value, including `1`. Do not delete the marker as a substitute for restoring the setting. After a successful manual reset, remove a stale marker only if you deliberately want to discard that saved recovery state.
 
+### Launch at Login
+
+The optional **Launch at Login** menu toggle registers/unregisters `SMAppService.mainApp` for the current user. Use the packaged `Clam.app` in `/Applications`, not `swift run Clam`. This opens the menu-bar app at login; it does **not** automatically turn Keep Mac Awake on. Startup recovery still restores any stale marker.
+
+The menu reads macOS's actual registration status rather than saving its own preference. A checked toggle with an approval hint means registration is pending, not enabled: choose **Open Login Items Settings…** to open **System Settings > Login Items** and approve Clam. You can also uncheck it to cancel registration. Status refreshes when the menu opens or the app becomes active, including changes made in System Settings. Registration/unregistration failures remain visible in the menu. Turn this option off before uninstalling Clam.
+
 ### Best-effort low-battery safeguard
 
 While Clam owns an active session, the app checks the internal battery immediately after enabling and then every 30 seconds. If the Mac is running on battery and the reported charge is **strictly below 10%**, it attempts to turn Clam off and restore the prior setting. AC power does not trigger this policy; exactly 10% is not below the threshold.
@@ -105,7 +111,9 @@ On macOS, run the development executable with `swift run Clam`, or build the ins
 
 Outputs are `build/Clam.app` and `dist/Clam-0.1.0.zip`. Local builds use ad-hoc signing unless a signing identity is supplied. On Linux, use `swift build`/`swift test` for the Foundation core and platform-conditional executable stub; do not try to package or run the macOS UI there. Core tests do not validate real administrator authorization, launchd installation, IOKit behavior, or lid-close behavior.
 
-Local verification: Swift 6.0.3 in Swift 5 language mode built the Linux executable and passed all 41 XCTest cases. A separate executable smoke run exercised real subprocess execution and JSON marker storage through On/Off, prior-value restoration, stale recovery, sudo-failure fallback, low-battery policy, and signal cleanup. Shell syntax, Linux platform guards, and plist parsing also passed. macOS compilation, menu UI, administrator dialogs, helper installation, universal signing/packaging, and physical lid-close behavior remain unverified on this Linux host.
+Local verification: `swift build && swift test` passed with the installed Swift 6.4.1 toolchain in Swift 5 language mode: 41 XCTest cases, zero failures; the Linux executable stub also ran. A temporary smoke harness exercised the actual login-item model's registration, approval, cancellation, error, and external-status transitions against simulated framework interfaces, not macOS services. The old `.local-tools` toolchain was removed.
+
+Earlier verification exercised real subprocess execution and JSON marker storage through On/Off, prior-value restoration, stale recovery, sudo-failure fallback, low-battery policy, and signal cleanup; shell syntax, Linux platform guards, and plist parsing also passed. macOS compilation, menu UI, actual login-item registration/approval, administrator dialogs, helper installation, universal signing/packaging, and physical lid-close behavior remain unverified on this Linux host.
 
 ### Signing and notarization — documentation only
 
@@ -116,6 +124,19 @@ DEVELOPER_ID='Developer ID Application: Your Name (TEAMID)' ./scripts/build.sh
 ```
 
 This is an example, not an identity supplied by the project. Ad-hoc signing cannot replace Developer ID trust. Signing alone does not notarize an app. For distribution, the maintainer would submit the signed archive with `xcrun notarytool submit … --keychain-profile … --wait`, inspect the result/log, staple the accepted ticket to the app with `xcrun stapler staple …`, and recreate the final ZIP from that stapled app. Keep credentials out of the repository. These are documentation-only instructions: no submission, publication, credentials, or notarization are provided or implied. Follow Apple's [notarization guide](https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution).
+
+## Publishing the tap (for later)
+
+These are future maintainer instructions only; no repository creation, upload, or publication is performed by the build script.
+
+1. Create the GitHub source repository `jimbo23/clam` and tap repository `jimbo23/homebrew-tap`.
+2. Keep the version in `Resources/Info.plist` and `Casks/clam.rb` aligned. On macOS, run `./scripts/build.sh`; follow the signing/notarization guidance above before distribution.
+3. Upload the final `dist/Clam-<version>.zip` to the `v<version>` release in `jimbo23/clam`, matching the cask's existing download URL. If notarization/stapling changes the archive, use the final archive for the checksum.
+4. Run `shasum -a 256 dist/Clam-<version>.zip` and replace the `sha256 "TODO..."` placeholder in `Casks/clam.rb` with that checksum. Remove the now-obsolete unpublished/TODO comments and caveats.
+5. Copy the completed cask to `homebrew-tap/Casks/clam.rb`. Verify with `brew style ./Casks/clam.rb` and, with the tap available, `brew audit --cask --online jimbo23/tap/clam`; resolve findings before publishing the tap.
+
+Homebrew already has an official [`clamshell`](https://formulae.brew.sh/cask/clamshell) cask with a similar purpose. Its token is `clamshell`, not `clam`, so there is no token conflict; use `jimbo23/tap/clam` to identify this cask explicitly.
+
 
 ## Safe macOS verification
 
@@ -139,6 +160,7 @@ These are **manual verification instructions, not claims of tests already perfor
    Logs contain unrelated events; a matching line alone is not a verdict.
 5. Turn Clam off and confirm the original setting is restored. Repeat with normal Quit if needed. If authorization/restoration fails, use the manual reset above and retain recovery evidence until resolved.
 6. Separately verify helper installation and reboot reset only when you can safely reboot and no other tool depends on a prior `1`. The boot job intentionally resets to `0`. A stale marker with prior `1` may restore `1` again on the next Clam launch.
+7. From `/Applications/Clam.app`, enable **Launch at Login**. If approval is required, verify the settings button opens Login Items and approve Clam. Reopen the menu after changing the setting externally and confirm its status refreshes. Disable the toggle and verify the login item is unregistered; enable it again and, when safe to log out, confirm login opens Clam without automatically enabling Keep Mac Awake.
 
 Do not infer coverage of other hardware, macOS versions, emergency sleep, thermal shutdown, or sudden power loss from one successful test.
 

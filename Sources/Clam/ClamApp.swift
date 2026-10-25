@@ -3,10 +3,13 @@ import AppKit
 import SwiftUI
 
 @main
+@MainActor
 struct ClamApp: App {
     @NSApplicationDelegateAdaptor(ClamAppDelegate.self) private var delegate
     @StateObject private var model = AppModel.shared
+    @StateObject private var loginItem = LoginItemModel()
 
+    @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
         MenuBarExtra {
             Text(model.hasOperationError ? "Clam needs attention" : (model.isOn ? "Clam is On" : "Clam is Off"))
@@ -38,6 +41,24 @@ struct ClamApp: App {
             }
             Text("Automatically turns off below 10% on battery.")
             Divider()
+            Toggle("Launch at Login", isOn: Binding(
+                get: { loginItem.isRequested },
+                set: { loginItem.setEnabled($0) }
+            ))
+            .onAppear { loginItem.refresh() }
+            .onReceive(NotificationCenter.default.publisher(for: NSMenu.didBeginTrackingNotification)) { _ in
+                loginItem.refresh()
+            }
+            Text(loginItem.statusText)
+            if loginItem.requiresApproval {
+                Button("Open Login Items Settings…") {
+                    loginItem.openSettings()
+                }
+            }
+            if let error = loginItem.errorMessage {
+                Text(error)
+            }
+            Divider()
             Button("Quit Clam") {
                 NSApp.terminate(nil)
             }
@@ -47,6 +68,7 @@ struct ClamApp: App {
                   systemImage: model.symbolName)
         }
         .menuBarExtraStyle(.menu)
+        .onChange(of: scenePhase) { _ in loginItem.refresh() }
     }
 }
 
